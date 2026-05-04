@@ -5,7 +5,7 @@ import Row from "../components/Row";
 import GenreTabs from "../components/GenreTabs";
 import { genreMap } from "../services/api";
 
-const API_KEY = "fdb19de6314c42882e0e5c538a4a2588";
+const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 
 function Home() {
     const [activeGenre, setActiveGenre] = useState("all");

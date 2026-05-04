@@ -4,17 +4,32 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
+// ── Safety check — fail fast with a clear message if any var is missing ───────
+const REQUIRED = [
+  "VITE_FIREBASE_API_KEY",
+  "VITE_FIREBASE_AUTH_DOMAIN",
+  "VITE_FIREBASE_PROJECT_ID",
+  "VITE_FIREBASE_STORAGE_BUCKET",
+  "VITE_FIREBASE_MESSAGING_SENDER_ID",
+  "VITE_FIREBASE_APP_ID",
+];
+REQUIRED.forEach((key) => {
+  if (!import.meta.env[key]) {
+    console.error(`[CineVerse] Missing environment variable: ${key}. Add it to your .env file.`);
+  }
+});
+
 const firebaseConfig = {
-  apiKey: "AIzaSyA3FD7n-mkLbfaGKjkpXJKB2KG0tsc5TDk",
-  authDomain: "cineverse-movie-app-6a291.firebaseapp.com",
-  projectId: "cineverse-movie-app-6a291",
-  storageBucket: "cineverse-movie-app-6a291.firebasestorage.app",
-  messagingSenderId: "848462337412",
-  appId: "1:848462337412:web:3b05284484b270595bf9d1",
+  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId:             import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);      // ✅ Firestore instance
-export const storage = getStorage(app);  // ✅ Firebase Storage instance
+export const auth    = getAuth(app);
+export const db      = getFirestore(app);   // ✅ Firestore instance
+export const storage = getStorage(app);     // ✅ Firebase Storage instance

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useWishlist } from "../hooks/useWishlist";
 
-const API_KEY = "fdb19de6314c42882e0e5c538a4a2588";
+const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 
 function Banner() {
     const [movie, setMovie] = useState(null);

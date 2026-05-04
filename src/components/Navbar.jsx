@@ -4,7 +4,7 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ProfileDropdown from "./ProfileDropdown";
 
-const API_KEY = "fdb19de6314c42882e0e5c538a4a2588";
+const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 
 function Navbar() {
     const { user } = useAuth();

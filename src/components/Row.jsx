@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { genreMap } from "../utils/genres";
 import { useWishlist } from "../hooks/useWishlist";
 
+const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 const IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500";
 
 function Row({ title, fetchUrl, movies: passedMovies }) {
@@ -43,7 +44,7 @@ function Row({ title, fetchUrl, movies: passedMovies }) {
     const fetchTrailer = async (movieId) => {
         try {
             const res = await fetch(
-                `https://api.themoviedb.org/3/movie/${movieId}/videos?api_key=fdb19de6314c42882e0e5c538a4a2588`
+                `https://api.themoviedb.org/3/movie/${movieId}/videos?api_key=${API_KEY}`
             );
             const data = await res.json();
 
