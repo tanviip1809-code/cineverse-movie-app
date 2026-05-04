@@ -1,0 +1,57 @@
+// src/context/AuthContext.jsx
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "../firebase";
+
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(undefined); // undefined = "checking", null = "no user"
+  const [loading, setLoading] = useState(true);
+
+  // ── Firestore profile: username / photoURL stored in users/{uid} ──────────
+  const [userProfile, setUserProfile] = useState(null);
+
+  const fetchProfile = useCallback(async (uid) => {
+    if (!uid) { setUserProfile(null); return; }
+    try {
+      const snap = await getDoc(doc(db, "users", uid));
+      setUserProfile(snap.exists() ? snap.data() : null);
+    } catch {
+      setUserProfile(null);
+    }
+  }, []);
+
+  /** Call this after saving profile changes → navbar re-renders instantly */
+  const refreshProfile = useCallback(() => {
+    if (auth.currentUser) fetchProfile(auth.currentUser.uid);
+  }, [fetchProfile]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);         // null if logged out, object if logged in
+      setLoading(false);
+
+      if (currentUser) {
+        console.log("Current UID:", currentUser.uid);
+        fetchProfile(currentUser.uid);
+      } else {
+        console.log("Current UID:", null, "— user logged out, clearing state");
+        setUserProfile(null);       // explicit clear on logout — no stale profile
+      }
+    });
+    return () => unsubscribe();
+  }, [fetchProfile]);
+
+  return (
+    <AuthContext.Provider value={{ user, loading, userProfile, refreshProfile }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+// Custom hook for easy access
+export function useAuth() {
+  return useContext(AuthContext);
+}

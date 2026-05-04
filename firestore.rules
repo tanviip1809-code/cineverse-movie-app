@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Users profile (read/write own doc only) ──────────────────────────────
+    match /users/{uid} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── Wishlists (each user owns their sub-collection) ──────────────────────
+    match /wishlists/{uid}/movies/{movieId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── Watch Party Rooms ─────────────────────────────────────────────────────
+    match /rooms/{roomId} {
+      // Any authenticated user can read a room (to join via link)
+      allow read: if request.auth != null;
+
+      // Only authenticated users can create a room, and only if they set themselves as host
+      allow create: if request.auth != null
+                    && request.resource.data.hostUid == request.auth.uid;
+
+      // Only the host can update room state (play/pause/sync)
+      allow update: if request.auth != null
+                    && (resource.data.hostUid == request.auth.uid
+                        || request.resource.data.hostUid == request.auth.uid);
+
+      // Only the host can delete the room
+      allow delete: if request.auth != null
+                    && resource.data.hostUid == request.auth.uid;
+
+      // Members sub-collection — any authenticated user can join/leave
+      match /members/{uid} {
+        allow read:   if request.auth != null;
+        allow create: if request.auth != null && request.auth.uid == uid;
+        allow delete: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // Chat messages — any room member can read and write
+      match /messages/{msgId} {
+        allow read:   if request.auth != null;
+        allow create: if request.auth != null
+                      && request.resource.data.uid == request.auth.uid;
+      }
+    }
+  }
+}
