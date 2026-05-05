@@ -25,7 +25,7 @@ function MovieDetails() {
     const [pageLoading, setPageLoading] = useState(!stateMovie); // skip fetch if state exists
 
     const navigate = useNavigate();
-    const { user, userProfile } = useAuth();
+    const { user, userProfile, loading: authLoading } = useAuth();
     const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
     const isInList = movie ? isInWishlist(movie.id) : false;
     const [partyLoading, setPartyLoading] = useState(false);
@@ -117,17 +117,33 @@ function MovieDetails() {
     const handleWatchParty = async () => {
         if (!movie) return;
 
-        // ── Guard 1: must be authenticated ──────────────────────────────────
+        // Guard: auth still resolving (important in production on first load)
+        if (authLoading) {
+            toast("Still loading your session, please try again in a moment.", { icon: "⏳" });
+            return;
+        }
+
         const uid = user?.uid;
+        console.log("AUTH USER:", user);
+        console.log("ROOM DATA:", { hostUid: uid });
+
         if (!uid) {
-            toast.error("Please log in to start a Watch Party.");
+            toast.error("User not authenticated. Please log in.");
             return;
         }
 
         setPartyLoading(true);
         try {
+            // ── CRITICAL: Force-refresh the Firebase ID token ────────────────
+            // Firebase ID tokens expire after 1 hour. On Vercel a cached page
+            // can load with an expired token — the Firestore SDK silently sends
+            // it, Firebase servers see request.auth as null → permission denied.
+            // getIdToken(true) forces a token refresh BEFORE the Firestore write,
+            // guaranteeing the security rule `request.auth != null` passes.
+            await user.getIdToken(true);
+
             // ── Fetch trailer key (reuse already-loaded one if available) ────
-            let trailerKey = trailer?.key ?? null;
+            let trailerKey = trailer?.key ?? "";
             if (!trailerKey) {
                 const res = await fetch(`${BASE}/movie/${movie.id}/videos?api_key=${API_KEY}`);
                 const data = await res.json();
@@ -150,7 +166,7 @@ function MovieDetails() {
                 roomId,
                 movieId:     movie.id,
                 movieTitle:  movie.title || movie.name || "Unknown",
-                trailerKey:  trailerKey,
+                trailerKey,
                 hostUid:     uid,
                 isPlaying:   false,
                 currentTime: 0,
@@ -158,7 +174,7 @@ function MovieDetails() {
                 createdAt:   serverTimestamp(),
             });
 
-            // ── Write host as first member (uid is guaranteed non-null here) ─
+            // ── Write host as first member ───────────────────────────────────
             await setDoc(doc(db, "rooms", roomId, "members", uid), {
                 uid,
                 displayName,
@@ -169,9 +185,10 @@ function MovieDetails() {
             toast.success("Watch Party created! Share the link 🎉");
             navigate(`/watch/${roomId}`);
         } catch (err) {
-            // Surface the real Firebase error for easy diagnosis
-            const reason = err?.code ? `[${err.code}] ${err.message}` : (err?.message ?? "Unknown error");
             console.error("Watch Party creation failed:", err);
+            const reason = err?.code
+                ? `[${err.code}] ${err.message}`
+                : (err?.message ?? "Unknown error");
             toast.error(`Room creation failed: ${reason}`);
         } finally {
             setPartyLoading(false);
@@ -273,8 +290,8 @@ function MovieDetails() {
                     <button
                         onClick={handleToggleList}
                         className={`px-6 py-2 rounded font-medium transition ${isInList
-                                ? "bg-red-600 hover:bg-red-700"
-                                : "bg-gray-700 hover:bg-gray-600"
+                            ? "bg-red-600 hover:bg-red-700"
+                            : "bg-gray-700 hover:bg-gray-600"
                             }`}
                     >
                         {isInList ? "❌ Remove from List" : "❤️ My List"}
@@ -282,11 +299,13 @@ function MovieDetails() {
 
                     <button
                         onClick={handleWatchParty}
-                        disabled={partyLoading}
+                        disabled={partyLoading || authLoading}
                         className="px-5 py-2 rounded font-medium transition bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white disabled:opacity-50 flex items-center gap-2"
                     >
                         {partyLoading ? (
                             <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" /> Creating…</>
+                        ) : authLoading ? (
+                            <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" /> Loading…</>
                         ) : (
                             <>🎉 Watch Party</>
                         )}
