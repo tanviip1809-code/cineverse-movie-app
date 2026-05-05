@@ -76,6 +76,8 @@ export default function WatchParty() {
                 // In production the cached token can be expired → permission denied.
                 await user.getIdToken(true);
 
+                console.log("[WatchParty] joinRoom — uid:", user.uid, "roomId:", roomId);
+
                 const roomRef = doc(db, "rooms", roomId);
                 const snap = await getDoc(roomRef);
                 if (!snap.exists()) {
@@ -92,6 +94,7 @@ export default function WatchParty() {
                     joinedAt: serverTimestamp(),
                 }, { merge: true });
 
+                console.log("[WatchParty] member written successfully");
                 setPageLoading(false);
             } catch (err) {
                 console.error("joinRoom error:", err);
@@ -102,11 +105,12 @@ export default function WatchParty() {
 
         joinRoom();
 
-        // LEAVE on unmount / tab close
+        // LEAVE on unmount / tab close — use user.uid to match the doc path written above
         const handleLeave = () => {
             if (left) return;
             left = true;
-            const memberRef = doc(db, "rooms", roomId, "members", uid);
+            if (!user?.uid) return;
+            const memberRef = doc(db, "rooms", roomId, "members", user.uid);
             deleteDoc(memberRef);
         };
 
