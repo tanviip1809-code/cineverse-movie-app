@@ -6,7 +6,7 @@ import {
     sendPasswordResetEmail,
 } from "firebase/auth";
 import { updateProfile } from "firebase/auth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export default function Login() {
     const [email, setEmail] = useState("");
@@ -14,6 +14,11 @@ export default function Login() {
     const [isSignup, setIsSignup] = useState(false);
     const [username, setUsername] = useState("");
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Redirect back to the page that triggered the login redirect.
+    // Falls back to "/" when Login is accessed directly.
+    const from = location.state?.from?.pathname || "/";
 
     // ── Forgot Password state ──────────────────────────────────────
     const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -45,8 +50,8 @@ export default function Login() {
             }
 
 
-            // ✅ Redirect after login/signup
-            navigate("/");
+            // ✅ Redirect back to the original destination (e.g. /watch/:roomId)
+            navigate(from, { replace: true });
 
         } catch (err) {
             alert(err.message);

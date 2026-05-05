@@ -1,15 +1,17 @@
 // src/components/ProtectedRoute.jsx
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 /**
  * ProtectedRoute — Wraps pages that require the user to be logged in.
  * - Shows a loader while Firebase resolves the auth state.
- * - Redirects to /login if not authenticated.
+ * - Redirects to /login with { state: { from: location } } so Login can
+ *   redirect back to the original URL after successful authentication.
  * - Renders children if authenticated.
  */
 export function ProtectedRoute({ children }) {
     const { user, loading } = useAuth();
+    const location = useLocation();
 
     if (loading) {
         return (
@@ -22,9 +24,9 @@ export function ProtectedRoute({ children }) {
         );
     }
 
-    // Not logged in → send to login page
+    // Not logged in → send to login, preserving the intended destination
     if (!user) {
-        return <Navigate to="/login" replace />;
+        return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
     return children;
