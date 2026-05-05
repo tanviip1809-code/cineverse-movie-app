@@ -6,7 +6,7 @@ import {
     collection, addDoc, onSnapshot, orderBy, query,
     serverTimestamp, Timestamp,
 } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
@@ -50,7 +50,7 @@ function loadYTScript(onReady) {
 export default function WatchParty() {
     const { roomId } = useParams();
     const navigate = useNavigate();
-    const { user, userProfile } = useAuth();
+    const { user, userProfile, loading: authLoading } = useAuth();
 
     // ── User identity ──────────────────────────────────────────────────────────
     const uid = user?.uid ?? null;
@@ -78,26 +78,36 @@ export default function WatchParty() {
     // JOIN ROOM on mount
     // ─────────────────────────────────────────────────────────────────────────
     useEffect(() => {
-        if (!uid) return;
+        if (!uid) return;   // wait for auth — critical in production
         let left = false;
 
         async function joinRoom() {
-            const roomRef = doc(db, "rooms", roomId);
-            const snap = await getDoc(roomRef);
-            if (!snap.exists()) {
-                toast.error("Room not found.");
-                navigate("/");
-                return;
+            try {
+                // Force-refresh the Firebase ID token before any Firestore write.
+                // In production the cached token can be expired → permission denied.
+                await user.getIdToken(true);
+
+                const roomRef = doc(db, "rooms", roomId);
+                const snap = await getDoc(roomRef);
+                if (!snap.exists()) {
+                    toast.error("Room not found.");
+                    navigate("/");
+                    return;
+                }
+
+                // Write member presence
+                const memberRef = doc(db, "rooms", roomId, "members", uid);
+                await setDoc(memberRef, {
+                    uid, displayName, photoURL,
+                    joinedAt: serverTimestamp(),
+                }, { merge: true });
+
+                setPageLoading(false);
+            } catch (err) {
+                console.error("joinRoom error:", err);
+                toast.error(err?.message ?? "Failed to join room.");
+                setPageLoading(false);
             }
-
-            // Write member presence
-            const memberRef = doc(db, "rooms", roomId, "members", uid);
-            await setDoc(memberRef, {
-                uid, displayName, photoURL,
-                joinedAt: serverTimestamp(),
-            }, { merge: true });
-
-            setPageLoading(false);
         }
 
         joinRoom();
@@ -118,31 +128,34 @@ export default function WatchParty() {
     }, [uid, roomId]); // eslint-disable-line
 
     // ─────────────────────────────────────────────────────────────────────────
-    // SUBSCRIBE to room doc (playback state)
+    // SUBSCRIBE to room doc (playback state) — wait for auth first
     // ─────────────────────────────────────────────────────────────────────────
     useEffect(() => {
+        if (!uid) return;  // don't subscribe until auth is confirmed
         const unsub = onSnapshot(doc(db, "rooms", roomId), (snap) => {
             if (!snap.exists()) return;
             setRoom(snap.data());
         });
         return unsub;
-    }, [roomId]);
+    }, [uid, roomId]);
 
     // ─────────────────────────────────────────────────────────────────────────
-    // SUBSCRIBE to members
+    // SUBSCRIBE to members — wait for auth first
     // ─────────────────────────────────────────────────────────────────────────
     useEffect(() => {
+        if (!uid) return;  // don't subscribe until auth is confirmed
         const unsub = onSnapshot(collection(db, "rooms", roomId, "members"), (snap) => {
             const list = snap.docs.map(d => d.data());
             setMembers(list);
         });
         return unsub;
-    }, [roomId]);
+    }, [uid, roomId]);
 
     // ─────────────────────────────────────────────────────────────────────────
-    // SUBSCRIBE to chat messages
+    // SUBSCRIBE to chat messages — wait for auth first
     // ─────────────────────────────────────────────────────────────────────────
     useEffect(() => {
+        if (!uid) return;  // don't subscribe until auth is confirmed
         const q = query(
             collection(db, "rooms", roomId, "messages"),
             orderBy("timestamp", "asc")
@@ -151,7 +164,7 @@ export default function WatchParty() {
             setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         });
         return unsub;
-    }, [roomId]);
+    }, [uid, roomId]);
 
     // Auto-scroll chat
     useEffect(() => {
@@ -306,13 +319,15 @@ export default function WatchParty() {
     };
 
     // ─────────────────────────────────────────────────────────────────────────
-    // LOADING
+    // LOADING — show spinner while auth resolves OR room data loads
     // ─────────────────────────────────────────────────────────────────────────
-    if (pageLoading || !room) {
+    if (authLoading || pageLoading || !room) {
         return (
             <div className="min-h-screen bg-[#080810] flex flex-col items-center justify-center gap-4">
                 <Spinner />
-                <p className="text-gray-400 text-sm">Joining watch party…</p>
+                <p className="text-gray-400 text-sm">
+                    {authLoading ? "Authenticating…" : "Joining watch party…"}
+                </p>
             </div>
         );
     }
