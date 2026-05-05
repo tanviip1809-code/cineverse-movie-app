@@ -4,14 +4,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
     doc, getDoc, setDoc, updateDoc, deleteDoc,
     collection, addDoc, onSnapshot, orderBy, query,
-    serverTimestamp, Timestamp,
+    serverTimestamp,
 } from "firebase/firestore";
-import { db, auth } from "../firebase";
+import { db } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
 // ─── constants ────────────────────────────────────────────────────────────────
-const SYNC_DEBOUNCE_MS = 1500; // min ms between host time-sync writes
+// (none)
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 function Avatar({ name = "?", photo, size = 32 }) {
@@ -37,15 +37,6 @@ function Spinner() {
     );
 }
 
-// ─── YouTube IFrame API loader ────────────────────────────────────────────────
-function loadYTScript(onReady) {
-    if (window.YT && window.YT.Player) { onReady(); return; }
-    const tag = document.createElement("script");
-    tag.src = "https://www.youtube.com/iframe_api";
-    document.head.appendChild(tag);
-    window.onYouTubeIframeAPIReady = onReady;
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function WatchParty() {
     const { roomId } = useParams();
@@ -65,11 +56,9 @@ export default function WatchParty() {
     const [pageLoading, setPageLoading] = useState(true);
     const [copied, setCopied] = useState(false);
 
-    // ── YouTube player ─────────────────────────────────────────────────────────
-    const playerRef = useRef(null);
-    const playerReady = useRef(false);
-    const isApplyingRemoteSync = useRef(false); // prevents feedback loop
-    const lastSyncWrite = useRef(0);            // timestamp of last host write
+    // ── YouTube iframe sync key ───────────────────────────────────────────────────
+    // Changes when host clicks Sync All — forces iframe reload at new start time
+    const localTimeRef = useRef(0);   // host-side elapsed seconds estimate
     const chatEndRef = useRef(null);
 
     const isHost = room?.hostUid === uid;
@@ -95,10 +84,11 @@ export default function WatchParty() {
                     return;
                 }
 
-                // Write member presence
-                const memberRef = doc(db, "rooms", roomId, "members", uid);
+                // Write member presence — document ID MUST equal user.uid
+                // so Firestore rule (uid == request.auth.uid) passes.
+                const memberRef = doc(db, "rooms", roomId, "members", user.uid);
                 await setDoc(memberRef, {
-                    uid, displayName, photoURL,
+                    uid: user.uid, displayName, photoURL,
                     joinedAt: serverTimestamp(),
                 }, { merge: true });
 
@@ -185,110 +175,52 @@ export default function WatchParty() {
     }, [members, room, roomId]);
 
     // ─────────────────────────────────────────────────────────────────────────
-    // YOUTUBE PLAYER init
+    // LOCAL TIMER — host tracks elapsed playback time so Sync All knows
+    // the current position without needing the YT IFrame API.
     // ─────────────────────────────────────────────────────────────────────────
     useEffect(() => {
-        if (!room?.trailerKey) return;
-
-        loadYTScript(() => {
-            if (playerRef.current) return; // already created
-
-            playerRef.current = new window.YT.Player("yt-player-div", {
-                videoId: room.trailerKey,
-                width: "100%",
-                height: "100%",
-                playerVars: {
-                    autoplay: 0,
-                    controls: isHost ? 1 : 0,
-                    modestbranding: 1,
-                    rel: 0,
-                    disablekb: isHost ? 0 : 1,
-                },
-                events: {
-                    onReady: () => { playerReady.current = true; },
-                    onStateChange: (e) => {
-                        if (!isHost || isApplyingRemoteSync.current) return;
-
-                        const now = Date.now();
-                        if (now - lastSyncWrite.current < SYNC_DEBOUNCE_MS) return;
-                        lastSyncWrite.current = now;
-
-                        const currentTime = playerRef.current?.getCurrentTime?.() ?? 0;
-
-                        if (e.data === window.YT.PlayerState.PLAYING) {
-                            updateDoc(doc(db, "rooms", roomId), {
-                                isPlaying: true,
-                                currentTime,
-                                syncedAt: Date.now(),
-                            });
-                        } else if (e.data === window.YT.PlayerState.PAUSED) {
-                            updateDoc(doc(db, "rooms", roomId), {
-                                isPlaying: false,
-                                currentTime,
-                                syncedAt: Date.now(),
-                            });
-                        }
-                    },
-                },
-            });
-        });
-
-        return () => {
-            playerRef.current?.destroy?.();
-            playerRef.current = null;
-            playerReady.current = false;
-        };
-    }, [room?.trailerKey]); // eslint-disable-line
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // APPLY remote sync to GUEST player
-    // ─────────────────────────────────────────────────────────────────────────
-    useEffect(() => {
-        if (isHost || !playerReady.current || !room) return;
-
-        isApplyingRemoteSync.current = true;
-
-        const lagCompensation = room.syncedAt
-            ? (Date.now() - room.syncedAt) / 1000
-            : 0;
-
-        const seekTo = (room.currentTime ?? 0) + (room.isPlaying ? lagCompensation : 0);
-
-        playerRef.current?.seekTo?.(seekTo, true);
-
+        if (!isHost || !room) return;
         if (room.isPlaying) {
-            playerRef.current?.playVideo?.();
+            // Seed the local timer from Firestore state + lag compensation
+            const lag = room.syncedAt ? (Date.now() - room.syncedAt) / 1000 : 0;
+            localTimeRef.current = (room.currentTime ?? 0) + lag;
+            const interval = setInterval(() => { localTimeRef.current += 0.5; }, 500);
+            return () => clearInterval(interval);
         } else {
-            playerRef.current?.pauseVideo?.();
+            localTimeRef.current = room.currentTime ?? 0;
         }
-
-        // reset flag after a tick
-        setTimeout(() => { isApplyingRemoteSync.current = false; }, 300);
-    }, [room?.isPlaying, room?.currentTime, room?.syncedAt]); // eslint-disable-line
+    }, [room?.isPlaying, room?.syncedAt]); // eslint-disable-line
 
     // ─────────────────────────────────────────────────────────────────────────
-    // HOST CONTROLS
+    // HOST CONTROLS — drive playback via Firestore (iframe reloads on sync)
     // ─────────────────────────────────────────────────────────────────────────
     const hostPlay = useCallback(() => {
         if (!isHost) return;
-        playerRef.current?.playVideo?.();
-    }, [isHost]);
+        updateDoc(doc(db, "rooms", roomId), {
+            isPlaying: true,
+            currentTime: localTimeRef.current,
+            syncedAt: Date.now(),
+        });
+    }, [isHost, roomId]);
 
     const hostPause = useCallback(() => {
         if (!isHost) return;
-        playerRef.current?.pauseVideo?.();
-    }, [isHost]);
-
-    const hostSync = useCallback(() => {
-        if (!isHost) return;
-        const currentTime = playerRef.current?.getCurrentTime?.() ?? 0;
-        const isPlaying = playerRef.current?.getPlayerState?.() === 1;
         updateDoc(doc(db, "rooms", roomId), {
-            isPlaying,
-            currentTime,
+            isPlaying: false,
+            currentTime: localTimeRef.current,
             syncedAt: Date.now(),
         });
-        toast.success("Synced all viewers");
+    }, [isHost, roomId]);
+
+    // Sync All: force-updates syncedAt → iframe key changes → all clients reload
+    const hostSync = useCallback(() => {
+        if (!isHost) return;
+        updateDoc(doc(db, "rooms", roomId), {
+            isPlaying: true,
+            currentTime: localTimeRef.current,
+            syncedAt: Date.now(),  // changing this key reloads all iframes
+        });
+        toast.success("Synced all viewers — iframes reloading at same position");
     }, [isHost, roomId]);
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -389,10 +321,17 @@ export default function WatchParty() {
                 {/* ── LEFT: Video + controls ─────────────────────────────── */}
                 <div className="flex-1 flex flex-col bg-black min-h-[40vh] lg:min-h-0">
 
-                    {/* YouTube embed */}
+                    {/* YouTube embed — plain iframe; key changes on sync to force reload */}
                     <div className="relative flex-1 bg-black">
                         {room.trailerKey ? (
-                            <div id="yt-player-div" className="w-full h-full min-h-[40vh]" />
+                            <iframe
+                                key={room.syncedAt}   // reloads on Sync All
+                                src={`https://www.youtube.com/embed/${room.trailerKey}?autoplay=${room.isPlaying ? 1 : 0}&start=${Math.floor(room.currentTime || 0)}&rel=0&modestbranding=1&enablejsapi=0`}
+                                title="Watch Party Player"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                allowFullScreen
+                                className="w-full h-full min-h-[40vh] border-0"
+                            />
                         ) : (
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-gray-500">
                                 <span className="text-5xl">🎬</span>
@@ -400,7 +339,7 @@ export default function WatchParty() {
                             </div>
                         )}
 
-                        {/* Guest overlay: "Host is controlling" */}
+                        {/* Guest overlay */}
                         {!isHost && (
                             <div className="absolute top-3 left-3 text-[11px] text-gray-400 bg-black/70 backdrop-blur px-2.5 py-1 rounded-full">
                                 👁 Synced to host
@@ -470,9 +409,8 @@ export default function WatchParty() {
                         ) : (
                             messages.map(msg => {
                                 const isMe = msg.uid === uid;
-                                const ts = msg.timestamp instanceof Timestamp
-                                    ? msg.timestamp.toDate()
-                                    : new Date();
+                                // Firebase may return a Timestamp object or a plain Date
+                                const ts = msg.timestamp?.toDate?.() ?? new Date();
                                 const time = ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
                                 return (
