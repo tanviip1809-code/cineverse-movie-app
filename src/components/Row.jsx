@@ -69,9 +69,9 @@ function Row({ title, fetchUrl, movies: passedMovies }) {
     };
 
     return (
-        <div className="px-8 mb-12">
+        <div className="px-3 sm:px-6 md:px-8 mb-8 sm:mb-10 md:mb-12">
             {/* TITLE */}
-            <h2 className="text-white text-xl font-semibold mb-4 tracking-wide">
+            <h2 className="text-white text-base sm:text-lg md:text-xl font-semibold mb-3 sm:mb-4 tracking-wide capitalize">
                 {title}
             </h2>
 
@@ -90,13 +90,13 @@ function Row({ title, fetchUrl, movies: passedMovies }) {
                 {/* MOVIES */}
                 <div
                     ref={rowRef}
-                    className="flex gap-5 overflow-x-scroll scrollbar-hide scroll-smooth px-10"
+                    className="flex gap-3 sm:gap-4 md:gap-5 overflow-x-scroll scrollbar-hide scroll-smooth px-6 sm:px-8 md:px-10"
                 >
                     {displayMovies.map((movie) => (
                         <div
                             key={movie.id}
                             onClick={() => navigate(`/movie/${movie.id}`, { state: movie })}
-                            className="min-w-[180px] max-w-[180px] group relative cursor-pointer hover:scale-110 transition duration-300"
+                            className="min-w-[130px] max-w-[130px] sm:min-w-[160px] sm:max-w-[160px] md:min-w-[180px] md:max-w-[180px] group relative cursor-pointer hover:scale-105 sm:hover:scale-110 transition duration-300"
                             onMouseEnter={() => {
                                 setHoveredMovie(movie.id);
                                 fetchTrailer(movie.id);
@@ -111,10 +111,10 @@ function Row({ title, fetchUrl, movies: passedMovies }) {
                                     e.stopPropagation();
                                     toggleWishlist(movie);
                                 }}
-                                className="absolute top-2 right-2 z-30 bg-black/60 p-2 rounded-full backdrop-blur-sm hover:scale-110 transition"
+                                className="absolute top-2 right-2 z-30 bg-black/60 p-1.5 sm:p-2 rounded-full backdrop-blur-sm hover:scale-110 transition"
                             >
                                 <Heart
-                                    size={18}
+                                    size={16}
                                     className={`transition ${isInWishlist(movie.id)
                                         ? "fill-red-500 text-red-500"
                                         : "text-white"
@@ -122,16 +122,21 @@ function Row({ title, fetchUrl, movies: passedMovies }) {
                                 />
                             </div>
                             <img
-                                src={`${IMAGE_BASE_URL}${movie.poster_path}`}
+                                src={movie.posterURL || `${IMAGE_BASE_URL}${movie.poster_path}`}
                                 alt={movie.title}
-                                className="rounded-lg object-cover w-full h-[260px] 
+                                className="rounded-lg object-cover w-full h-[195px] sm:h-[240px] md:h-[260px]
                 transition duration-300 group-hover:scale-110 group-hover:z-10"
                             />
                             <div className="mt-2 flex flex-wrap gap-1">
-                                {movie.genre_ids?.slice(0, 2).map((id) => (
+                                {/* Firestore movies use genres[] strings; TMDB movies use genre_ids[] */}
+                                {movie.genres?.length > 0
+                                  ? movie.genres.slice(0, 2).map((g) => (
+                                      <span key={g} className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 bg-black/70 backdrop-blur-sm text-white rounded-full border border-white/20">{g}</span>
+                                    ))
+                                  : movie.genre_ids?.slice(0, 2).map((id) => (
                                     <span
                                         key={id}
-                                        className="text-[10px] px-2 py-0.5 bg-black/70 backdrop-blur-sm text-white rounded-full border border-white/20"
+                                        className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 bg-black/70 backdrop-blur-sm text-white rounded-full border border-white/20"
                                     >
                                         {genreMap[id]}
                                     </span>

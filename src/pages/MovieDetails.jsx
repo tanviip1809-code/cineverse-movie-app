@@ -227,7 +227,7 @@ function MovieDetails() {
         <div className="bg-black text-white min-h-screen">
 
             {/* Banner */}
-            <div className="relative h-[70vh]">
+            <div className="relative h-[40vh] sm:h-[55vh] md:h-[70vh]">
                 <img
                     src={
                         movie.backdrop_path
@@ -240,14 +240,14 @@ function MovieDetails() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
 
                 {/* Title overlay on banner */}
-                <div className="absolute bottom-10 left-10">
-                    <h1 className="text-5xl font-bold drop-shadow-lg">
+                <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 md:bottom-10 md:left-10 max-w-[90%] md:max-w-xl">
+                    <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold drop-shadow-lg leading-tight">
                         {movie.title || movie.name}
                     </h1>
-                    <p className="text-yellow-400 mt-2 text-lg">
+                    <p className="text-yellow-400 mt-1 sm:mt-2 text-base sm:text-lg">
                         ⭐ {movie.vote_average?.toFixed(1)}
                         {movie.release_date && (
-                            <span className="text-gray-400 ml-4 text-sm">
+                            <span className="text-gray-400 ml-3 sm:ml-4 text-xs sm:text-sm">
                                 {movie.release_date.slice(0, 4)}
                             </span>
                         )}
@@ -256,7 +256,7 @@ function MovieDetails() {
             </div>
 
             {/* Content */}
-            <div className="px-10 py-8 space-y-6 max-w-5xl">
+            <div className="px-4 sm:px-6 md:px-10 py-5 sm:py-6 md:py-8 space-y-5 sm:space-y-6 max-w-5xl">
 
                 {/* Overview */}
                 <p className="text-gray-300 text-base leading-relaxed">
@@ -272,35 +272,35 @@ function MovieDetails() {
                 )}
 
                 {/* Action Buttons */}
-                <div className="flex flex-wrap gap-4 mt-2">
+                <div className="flex flex-wrap gap-2 sm:gap-3 md:gap-4 mt-2">
                     <button
                         onClick={handlePlay}
-                        className="bg-white text-black px-6 py-2 rounded font-semibold hover:bg-gray-200 transition"
+                        className="bg-white text-black px-4 sm:px-6 py-2 rounded font-semibold hover:bg-gray-200 transition text-sm sm:text-base"
                     >
                         ▶ Play
                     </button>
 
                     <button
                         onClick={handleTrailer}
-                        className="bg-gray-700 px-5 py-2 rounded flex items-center gap-2 hover:bg-gray-600 transition"
+                        className="bg-gray-700 px-4 sm:px-5 py-2 rounded flex items-center gap-2 hover:bg-gray-600 transition text-sm sm:text-base"
                     >
                         🎬 Trailer
                     </button>
 
                     <button
                         onClick={handleToggleList}
-                        className={`px-6 py-2 rounded font-medium transition ${isInList
+                        className={`px-4 sm:px-6 py-2 rounded font-medium transition text-sm sm:text-base ${isInList
                             ? "bg-red-600 hover:bg-red-700"
                             : "bg-gray-700 hover:bg-gray-600"
                             }`}
                     >
-                        {isInList ? "❌ Remove from List" : "❤️ My List"}
+                        {isInList ? "❌ Remove" : "❤️ My List"}
                     </button>
 
                     <button
                         onClick={handleWatchParty}
                         disabled={partyLoading || authLoading}
-                        className="px-5 py-2 rounded font-medium transition bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white disabled:opacity-50 flex items-center gap-2"
+                        className="px-4 sm:px-5 py-2 rounded font-medium transition bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white disabled:opacity-50 flex items-center gap-2 text-sm sm:text-base"
                     >
                         {partyLoading ? (
                             <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" /> Creating…</>
@@ -381,14 +381,14 @@ function MovieDetails() {
 
                 {/* Recommended Movies */}
                 {recommended.length > 0 && (
-                    <div className="mt-10">
-                        <h3 className="text-xl font-semibold mb-4">Recommended Movies</h3>
-                        <div className="flex gap-4 overflow-x-auto pb-2">
+                    <div className="mt-8 sm:mt-10">
+                        <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Recommended Movies</h3>
+                        <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
                             {recommended.map((rec) => (
                                 <div
                                     key={rec.id}
                                     onClick={() => navigate(`/movie/${rec.id}`, { state: rec })}
-                                    className="min-w-[140px] cursor-pointer hover:scale-105 transition flex-shrink-0"
+                                    className="min-w-[110px] sm:min-w-[140px] cursor-pointer hover:scale-105 transition flex-shrink-0"
                                 >
                                     <img
                                         src={

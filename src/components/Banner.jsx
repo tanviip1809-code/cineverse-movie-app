@@ -45,7 +45,7 @@ function Banner() {
     if (!movie) return null;
 
     return (
-        <div className="relative h-screen w-full animate-fadeIn">
+        <div className="relative h-[80vh] sm:h-screen w-full animate-fadeIn">
 
 
             {/* Background */}
@@ -60,28 +60,28 @@ function Banner() {
             <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f0f] via-transparent to-transparent"></div>
 
             {/* Content */}
-            <div className="absolute bottom-24 left-6 md:left-16 text-white max-w-xl">
+            <div className="absolute bottom-16 sm:bottom-24 left-4 sm:left-8 md:left-16 text-white max-w-xs sm:max-w-md md:max-w-xl pr-4">
 
-                <h1 className="text-4xl md:text-6xl font-bold mb-4">
+                <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold mb-2 sm:mb-4 leading-tight">
                     {movie.title || movie.name}
                 </h1>
 
-                <p className="text-sm md:text-base text-gray-300 mb-6">
-                    {truncate(movie.overview, 120)}
+                <p className="text-xs sm:text-sm md:text-base text-gray-300 mb-4 sm:mb-6 line-clamp-3 sm:line-clamp-none">
+                    {truncate(movie.overview, 150)}
                 </p>
 
-                <div className="flex gap-4">
+                <div className="flex gap-2 sm:gap-4">
 
                     <button
                         onClick={handlePlay}
-                        className="px-6 py-2 bg-white text-black font-semibold rounded-md hover:bg-gray-200 transition shadow-lg"
+                        className="px-4 sm:px-6 py-2 bg-white text-black font-semibold rounded-md hover:bg-gray-200 transition shadow-lg text-sm sm:text-base"
                     >
                         ▶ Play
                     </button>
 
                     <button
                         onClick={addToList}
-                        className="px-6 py-2 bg-white/20 backdrop-blur-md rounded-md hover:bg-white/30 transition shadow-lg"
+                        className="px-4 sm:px-6 py-2 bg-white/20 backdrop-blur-md rounded-md hover:bg-white/30 transition shadow-lg text-sm sm:text-base"
                     >
                         {movie && isInWishlist(movie.id) ? "❌ Remove" : "+ My List"}
                     </button>

@@ -16,8 +16,8 @@ function MyList() {
   }
 
   return (
-    <div className="bg-black min-h-screen pt-24 px-8">
-      <h1 className="text-white text-3xl font-bold mb-8">My List ❤️</h1>
+    <div className="bg-black min-h-screen pt-20 sm:pt-24 px-4 sm:px-6 md:px-8">
+      <h1 className="text-white text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">My List ❤️</h1>
 
       {wishlist.length === 0 ? (
         <div className="flex flex-col items-center justify-center mt-20 gap-3">
